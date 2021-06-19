@@ -504,3 +504,111 @@ ggplot(data = TP,aes(x=METTL3,y=TRA2A))+
   annotate('text',x=0.8,y=2.1,label='Tumor N=99',colour = "black",size=6)+
   ggsave(file='TP-cor-CAPTAC.PDF',width = 10,height = 8)
   
+#######CGGA miRNA
+rm(list = ls())
+stringsAsFactors=FALSE
+exp<-read.table('CGGA.microRNA_array_198_gene_level.20200506.txt',header = T,sep = '\t') #data from CGGA DataSet ID: microRNA_198 Expression Data (gene level)
+rownames(exp)<-c(paste('r',1:829,sep=''))
+mid<-cbind(exp[,199],c(1:829))
+mid<-cbind(exp[,199],c(paste('r',1:829,sep='')))
+
+meta<-read.table('CGGA.microRNA_array_198_clinical.20200506.txt',header = T,sep = '\t')  #data from CGGA DataSet ID: microRNA_198 Clinical Data
+
+exp=exp[,order(colnames(exp),decreasing = T)]
+exp2=exp[,-1]
+rownames(exp2)=rownames(exp)
+meta=meta[order(meta[,1],decreasing = T),]
+exp2[830,]=meta$Grade
+#colnames(exp2)=exp2[830,]
+exp2=exp2[,order(exp2[830,],decreasing = F)]
+micrna=c(exp$microRNA_ID,'na')
+
+table(meta$Grade)
+sample_calss=c(rep('WHO II',60),
+               rep('WHO III',47),
+               rep('WHO IV',91))
+level = c(1:198)
+annotation_c <- data.frame(sample_calss, level)
+rownames(annotation_c) <- colnames(exp2)
+exp3=exp2[-830,]
+exp3=as.data.frame(lapply(exp3,as.numeric))
+class(exp3)
+rownames(exp3)<-c((paste('r',1:829,sep='')))
+annotation_b=annotation_c[,-2]
+annotation_b=as.data.frame(annotation_b)
+rownames(annotation_b)=rownames(annotation_c)
+annotation_c=annotation_b
+
+library(pheatmap)
+p=pheatmap(exp3,
+         cluster_rows = T,
+         cluster_cols = F,
+         annotation_col =annotation_b,
+         annotation_legend=TRUE,
+         scale = "row",
+         show_rownames = F,
+         show_colnames = F,
+         breaks = seq(-1,1,length.out = 100))
+
+table(annotation_c$sample_calss)
+group_list1<-c(rep('WHOII',60),rep('WHOIII',47))
+group_list2<-c(rep('WHOIII',47),rep('WHOIV',91))
+group_list1=as.factor(group_list1)
+group_list2=as.factor(group_list2)
+identical(rownames(annotation_c),colnames(exp3))
+EXP1=exp3[,1:107]
+EXP2=exp3[,61:198]
+
+library(limma)
+design <- model.matrix(~0+factor(group_list1))
+colnames(design)=levels(factor(group_list1))
+rownames(design)=colnames(EXP1)
+design
+contrast.matrix<-makeContrasts(WHOIII-WHOII,levels = design)
+contrast.matrix 
+fit <- lmFit(EXP1,design)
+fit2 <- contrasts.fit(fit, contrast.matrix)
+fit2 <- eBayes(fit2)  #default no trend !!!
+tempOutput = topTable(fit2, coef=1, n=Inf)
+nrDEG1 = na.omit(tempOutput) 
+head(nrDEG1)
+
+design <- model.matrix(~0+factor(group_list2))
+colnames(design)=levels(factor(group_list2))
+rownames(design)=colnames(EXP2)
+design
+contrast.matrix<-makeContrasts(WHOIV-WHOIII,levels = design)
+contrast.matrix 
+fit <- lmFit(EXP2,design)
+fit2 <- contrasts.fit(fit, contrast.matrix)
+fit2 <- eBayes(fit2)  #default no trend !!!
+tempOutput = topTable(fit2, coef=1, n=Inf)
+nrDEG2 = na.omit(tempOutput) 
+head(nrDEG2)
+
+identical(rownames(nrDEG2),rownames(nrDEG2))
+nrDEG1=nrDEG1[nrDEG1[,1]<0,]
+nrDEG2=nrDEG2[nrDEG2[,1]<0,]
+nrDEG1=nrDEG1[nrDEG1[,4]<0.05,]
+nrDEG2=nrDEG2[nrDEG2[,4]<0.05,]
+LIST=nrDEG1[rownames(nrDEG1) %in% rownames(nrDEG2),]
+LIST=mid[mid[,2] %in% rownames(LIST),]
+
+fix(LIST)
+LIST=LIST[!duplicated(LIST[,1]),]
+exp4=exp3[rownames(exp3) %in% LIST[,2],]
+rownames(exp4)=LIST[,1]
+
+colnames(annotation_b)<-c('Grade')
+fix(exp4)
+library(pheatmap)
+p=pheatmap(exp4,
+           cluster_rows = T,
+           cluster_cols = F,
+           annotation_col =annotation_b,
+           annotation_legend=TRUE,
+           scale = "row",
+           show_rownames = T,
+           show_colnames = F,
+           breaks = seq(-1,1,length.out = 100))
+write.csv(exp4,file = 'exp4.csv')
