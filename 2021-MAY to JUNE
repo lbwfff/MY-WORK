@@ -362,6 +362,11 @@ WHO III N=79
 WHO IV N=139',colour = "black",size=6)+
   ggsave( file='CGGA-METTL3.pdf', width=8, height=7)
 
+library(survminer)
+library(survival)
+library(ggpubr)
+library(gridExtra)
+
 dat$osm=(dat$OS)/30
 dat$osm=floor(dat$osm)
 rownames(dat)<-dat$sample
